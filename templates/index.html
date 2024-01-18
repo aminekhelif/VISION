@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-time Image Processing</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.0/socket.io.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+            background: #f4f4f4;
+        }
+        header {
+            background: #333;
+            color: #fff;
+            padding: 10px 0;
+        }
+        #videoElement {
+            max-width: 90%;
+            margin: 20px auto;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        #controls {
+            margin: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            background: #007bff;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        #processedImage {
+            max-width: 100%; /* Adjust or remove this as needed */
+            width: 500px; /* Set a specific width or use 'auto' */
+            height: 300px; /* Set a specific height or use 'auto' */
+            margin: 20px auto;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        #processedFeed {
+            width: 90%;
+            margin: 20px auto;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Real-time Image Processing</h1>
+    </header>
+    <div id="cameraFeed">
+        <video id="videoElement" autoplay playsinline muted></video>
+        <div id="controls">
+            <button id="flipCamera">Flip Camera</button>
+        </div>
+    </div>
+    <div id="processedFeed">
+        <h2>Processed Image</h2>
+        <img id="processedImage" />
+    </div>
+    <canvas id="canvas" style="display: none;"></canvas>
+    <script>
+        var video = document.querySelector("#videoElement");
+        var canvas = document.getElementById('canvas');
+        var context = canvas.getContext('2d');
+        var socket = io();
+        var processedImage = document.getElementById('processedImage');
+        var flipCameraButton = document.getElementById('flipCamera');
+        var useFrontCamera = false;
+        var constraints = {
+            video: { 
+                facingMode: (useFrontCamera ? "user" : "environment"),
+                width: { ideal: 1920 },  // Adjust these values as needed
+                height: { ideal: 1080 }
+            }
+        };
+        
+    
+        function getCameraStream() {
+            if (navigator.mediaDevices.getUserMedia) {
+                var constraints = {
+                    video: { facingMode: (useFrontCamera ? "user" : "environment") }
+                };
+    
+                navigator.mediaDevices.getUserMedia(constraints)
+                    .then(function (stream) {
+                        video.srcObject = stream;
+                    })
+                    .catch(function (error) {
+                        console.log("Something went wrong: " + error);
+                    });
+            }
+        }
+    
+        flipCameraButton.addEventListener('click', function() {
+            useFrontCamera = !useFrontCamera;
+            getCameraStream();
+        });
+    
+        video.addEventListener('play', function() {
+            setInterval(function() {
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                var imageData = canvas.toDataURL('image/png');
+                socket.emit('image', { data: imageData });
+            }, 100); // sends frame every 100 ms
+        });
+    
+        socket.on('response_back', function(data) {
+            processedImage.src = 'data:image/png;base64,' + data.data;
+        });
+    
+        // Initialize camera stream
+        getCameraStream();
+    </script>
+    
+</body>
+</html>
